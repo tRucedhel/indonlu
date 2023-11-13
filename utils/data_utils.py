@@ -503,14 +503,15 @@ class EntailmentDataLoader(DataLoader):
 #####
 class DocumentSentimentDataset(Dataset):
     # Static constant variable
-    LABEL2INDEX = {'positive': 0, 'neutral': 1, 'negative': 2}
-    INDEX2LABEL = {0: 'positive', 1: 'neutral', 2: 'negative'}
-    NUM_LABELS = 3
-    
-    def load_dataset(self, path): 
+    LABEL2INDEX = {'positive': 0, 'negative': 1}
+    INDEX2LABEL = {0: 'positive', 1: 'negative'}
+    NUM_LABELS = 2  # Update the number of labels
+
+    def load_dataset(self, path):
         df = pd.read_csv(path, sep='\t', header=None)
-        df.columns = ['text','sentiment']
-        df['sentiment'] = df['sentiment'].apply(lambda lab: self.LABEL2INDEX[lab])
+        df.columns = ['text', 'sentiment']
+        df['sentiment'] = df['sentiment'].apply(lambda lab: self.LABEL2INDEX[lab] if lab in self.LABEL2INDEX else -1)
+        df = df[df['sentiment'] != -1]  # Exclude rows with labels not in LABEL2INDEX
         return df
     
     def __init__(self, dataset_path, tokenizer, no_special_token=False, *args, **kwargs):
@@ -772,15 +773,16 @@ class AspectBasedSentimentAnalysisAiryDataset(Dataset):
 class AspectBasedSentimentAnalysisProsaDataset(Dataset):
     # Static constant variable
     ASPECT_DOMAIN = ['fuel', 'machine', 'others', 'part', 'price', 'service']
-    LABEL2INDEX = {'negative': 0, 'neutral': 1, 'positive': 2}
-    INDEX2LABEL = {0: 'negative', 1: 'neutral', 2: 'positive'}
-    NUM_LABELS = [3, 3, 3, 3, 3, 3]
+    LABEL2INDEX = {'negative': 0, 'positive': 1}
+    INDEX2LABEL = {0: 'negative', 1: 'positive'}
+    NUM_LABELS = 2  # Update the number of labels
     NUM_ASPECTS = 6
     
     def load_dataset(self, path):
         df = pd.read_csv(path)
         for aspect in self.ASPECT_DOMAIN:
-            df[aspect] = df[aspect].apply(lambda sen: self.LABEL2INDEX[sen])
+            df[aspect] = df[aspect].apply(lambda sen: self.LABEL2INDEX[sen] if sen in self.LABEL2INDEX else -1)
+            df = df[df[aspect] != -1]  # Exclude rows with labels not in LABEL2INDEX
         return df
     
     def __init__(self, dataset_path, tokenizer, no_special_token=False, *args, **kwargs):
@@ -789,7 +791,7 @@ class AspectBasedSentimentAnalysisProsaDataset(Dataset):
         self.no_special_token = no_special_token
         
     def __getitem__(self, index):
-        data = self.data.loc[index,:]
+        data = self.data.loc[index, :]
         sentence, labels = data['sentence'], [data[aspect] for aspect in self.ASPECT_DOMAIN]
         subwords = self.tokenizer.encode(sentence, add_special_tokens=not self.no_special_token)
         return np.array(subwords), np.array(labels), data['sentence']
